@@ -560,11 +560,12 @@ int main(int argc, char **argv)
                               || outputHeight != sAppliedOutputHeight))
                             {
                                 SDL_RenderSetLogicalSize(sdlRenderer, gRenderWidth, DISPLAY_HEIGHT);
-                                // Integer scaling would round 288x160 down to 6x
-                                // on a 1080p panel and hand the bars straight
-                                // back, so it only applies to the narrow frame.
+#ifdef __ANDROID__
+                                SDL_RenderSetIntegerScale(sdlRenderer, SDL_FALSE);
+#else
                                 SDL_RenderSetIntegerScale(sdlRenderer,
                                         gRenderMargin == 0 ? SDL_TRUE : SDL_FALSE);
+#endif
                                 sAppliedWidth = gRenderWidth;
                                 sAppliedOutputWidth = outputWidth;
                                 sAppliedOutputHeight = outputHeight;
@@ -897,9 +898,7 @@ static void ApplyDisplayMode(void)
     // present, so whatever the draw loop had set was overwritten a moment
     // later and widescreen came out as a stretch rather than more picture.
     SDL_RenderSetLogicalSize(sdlRenderer, gRenderWidth, DISPLAY_HEIGHT);
-    // Integer scaling would round 288x160 down on a 1080p panel and hand the
-    // letterbox straight back, so it only applies to the narrow frame.
-    SDL_RenderSetIntegerScale(sdlRenderer, gRenderMargin == 0 ? SDL_TRUE : SDL_FALSE);
+    SDL_RenderSetIntegerScale(sdlRenderer, SDL_FALSE);
 #endif
 }
 

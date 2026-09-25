@@ -95,25 +95,31 @@ public class PokeEmeraldActivity extends SDLActivity {
             mLayout.post(() -> {
                 int width = mLayout.getWidth();
                 int height = mLayout.getHeight();
-                if (width > 0 && height > 0) {
-                    int halfHeight = height / 2;
+                    // GBA display is 240x160 (3:2 aspect ratio).
+                    // In portrait mode, size the top screen to exactly match
+                    // the 3:2 aspect ratio so the game fills the entire top frame
+                    // without any black borders and without distorting the picture.
+                    int topHeight = (width * 160) / 240;
+                    if (topHeight > height * 3 / 5) {
+                        topHeight = height / 2;
+                    }
 
                     if (mSurface != null) {
                         android.widget.RelativeLayout.LayoutParams gameParams =
-                                new android.widget.RelativeLayout.LayoutParams(width, halfHeight);
+                                new android.widget.RelativeLayout.LayoutParams(width, topHeight);
                         gameParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_TOP);
                         mSurface.setLayoutParams(gameParams);
                     }
 
                     if (controls != null) {
                         android.widget.RelativeLayout.LayoutParams controlsParams =
-                                new android.widget.RelativeLayout.LayoutParams(width, halfHeight);
+                                new android.widget.RelativeLayout.LayoutParams(width, topHeight);
                         controlsParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_TOP);
                         controls.setLayoutParams(controlsParams);
                     }
 
                     android.widget.RelativeLayout.LayoutParams bottomParams =
-                            new android.widget.RelativeLayout.LayoutParams(width, height - halfHeight);
+                            new android.widget.RelativeLayout.LayoutParams(width, height - topHeight);
                     bottomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM);
                     mLayout.addView(inlineBottomView, bottomParams);
                 }
