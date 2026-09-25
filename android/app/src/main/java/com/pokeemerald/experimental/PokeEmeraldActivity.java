@@ -22,6 +22,7 @@ public class PokeEmeraldActivity extends SDLActivity {
     private static final long SNAPSHOT_INTERVAL_MS = 120;
 
     private DualScreenPresentation presentation;
+    private DualScreenView inlineBottomView;
     private final Handler snapshotHandler = new Handler(Looper.getMainLooper());
     private final Runnable snapshotPump = new Runnable() {
         @Override
@@ -32,9 +33,11 @@ public class PokeEmeraldActivity extends SDLActivity {
                 presentation = null;
                 showBottomScreen();
             }
+            String json = DualScreenBridge.nativeGetSnapshotJson();
             if (presentation != null && presentation.isShowing()) {
-                String json = DualScreenBridge.nativeGetSnapshotJson();
                 presentation.updateState(DualScreenState.parse(json));
+            } else if (inlineBottomView != null) {
+                inlineBottomView.setState(DualScreenState.parse(json));
             }
             // The overlay paints letterbox bars from the live setting. On a
             // release cold start DualScreen_FillAssets runs before the config
@@ -57,10 +60,12 @@ public class PokeEmeraldActivity extends SDLActivity {
     private final Runnable navPump = new Runnable() {
         @Override
         public void run() {
-            if (presentation != null) {
-                int action;
-                while ((action = DualScreenBridge.nativeDrainNavKey()) >= 0) {
+            int action;
+            while ((action = DualScreenBridge.nativeDrainNavKey()) >= 0) {
+                if (presentation != null && presentation.isShowing()) {
                     presentation.navigate(action);
+                } else if (inlineBottomView != null) {
+                    inlineBottomView.navigate(action);
                 }
             }
             navHandler.postDelayed(this, NAV_INTERVAL_MS);
@@ -73,10 +78,53 @@ public class PokeEmeraldActivity extends SDLActivity {
         // Hide the bars before the first layout so SDL's SurfaceView is
         // sized to the full display, not inset and then resized.
         applyImmersiveFlags();
+
+        DisplayManager displayManager = (DisplayManager) getSystemService(DISPLAY_SERVICE);
+        Display[] displays = displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
+
         controls = new GbaControlsView(this);
-        mLayout.addView(controls, new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        if (displays.length == 0) {
+            inlineBottomView = new DualScreenView(this);
+            inlineBottomView.setSettingsListener(() -> {
+                if (controls != null) {
+                    controls.postInvalidate();
+                }
+            });
+
+            mLayout.post(() -> {
+                int width = mLayout.getWidth();
+                int height = mLayout.getHeight();
+                if (width > 0 && height > 0) {
+                    int halfHeight = height / 2;
+
+                    if (mSurface != null) {
+                        android.widget.RelativeLayout.LayoutParams gameParams =
+                                new android.widget.RelativeLayout.LayoutParams(width, halfHeight);
+                        gameParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_TOP);
+                        mSurface.setLayoutParams(gameParams);
+                    }
+
+                    if (controls != null) {
+                        android.widget.RelativeLayout.LayoutParams controlsParams =
+                                new android.widget.RelativeLayout.LayoutParams(width, halfHeight);
+                        controlsParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_TOP);
+                        controls.setLayoutParams(controlsParams);
+                    }
+
+                    android.widget.RelativeLayout.LayoutParams bottomParams =
+                            new android.widget.RelativeLayout.LayoutParams(width, height - halfHeight);
+                    bottomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM);
+                    mLayout.addView(inlineBottomView, bottomParams);
+                }
+            });
+
+            mLayout.addView(controls);
+        } else {
+            mLayout.addView(controls, new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT));
+        }
     }
 
     @Override
