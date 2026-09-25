@@ -95,6 +95,7 @@ public class PokeEmeraldActivity extends SDLActivity {
             mLayout.post(() -> {
                 int width = mLayout.getWidth();
                 int height = mLayout.getHeight();
+                if (width > 0 && height > 0) {
                     // GBA display is 240x160 (3:2 aspect ratio).
                     // In portrait mode, size the top screen to exactly match
                     // the 3:2 aspect ratio so the game fills the entire top frame
