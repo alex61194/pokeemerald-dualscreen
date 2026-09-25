@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Display;
+import android.view.DisplayCutout;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -96,18 +97,49 @@ public class PokeEmeraldActivity extends SDLActivity {
                 int width = mLayout.getWidth();
                 int height = mLayout.getHeight();
                 if (width > 0 && height > 0) {
-                    // GBA display is 240x160 (3:2 aspect ratio).
-                    // In portrait mode, size the top screen to exactly match
-                    // the 3:2 aspect ratio so the game fills the entire top frame
-                    // without any black borders and without distorting the picture.
-                    int topHeight = (width * 160) / 240;
-                    if (topHeight > height * 3 / 5) {
-                        topHeight = height / 2;
+                    mLayout.setBackgroundColor(android.graphics.Color.BLACK);
+
+                    float density = getResources().getDisplayMetrics().density;
+                    int topMargin = 0;
+                    int bottomMargin = 0;
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        WindowInsets insets = mLayout.getRootWindowInsets();
+                        if (insets != null) {
+                            DisplayCutout cutout = insets.getDisplayCutout();
+                            if (cutout != null) {
+                                topMargin = cutout.getSafeInsetTop();
+                                bottomMargin = cutout.getSafeInsetBottom();
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                android.graphics.Insets navInsets = insets.getInsetsIgnoringVisibility(WindowInsets.Type.navigationBars());
+                                bottomMargin = Math.max(bottomMargin, navInsets.bottom);
+                                android.graphics.Insets statusInsets = insets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars());
+                                topMargin = Math.max(topMargin, statusInsets.top);
+                            }
+                        }
                     }
+
+                    // Fallback / minimum safety margin for devices with curved corners
+                    int minTopMargin = Math.round(48 * density);
+                    int minBottomMargin = Math.round(28 * density);
+                    topMargin = Math.max(topMargin, minTopMargin);
+                    bottomMargin = Math.max(bottomMargin, minBottomMargin);
+
+                    int usableHeight = height - topMargin - bottomMargin;
+                    // GBA display is 240x160 (3:2 aspect ratio).
+                    // Size the top screen to exactly match the 3:2 aspect ratio so
+                    // the game fills the entire top frame without black letterbox bars.
+                    int topHeight = (width * 160) / 240;
+                    if (topHeight > usableHeight * 3 / 5) {
+                        topHeight = usableHeight / 2;
+                    }
+                    int bottomHeight = usableHeight - topHeight;
 
                     if (mSurface != null) {
                         android.widget.RelativeLayout.LayoutParams gameParams =
                                 new android.widget.RelativeLayout.LayoutParams(width, topHeight);
+                        gameParams.topMargin = topMargin;
                         gameParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_TOP);
                         mSurface.setLayoutParams(gameParams);
                     }
@@ -115,12 +147,14 @@ public class PokeEmeraldActivity extends SDLActivity {
                     if (controls != null) {
                         android.widget.RelativeLayout.LayoutParams controlsParams =
                                 new android.widget.RelativeLayout.LayoutParams(width, topHeight);
+                        controlsParams.topMargin = topMargin;
                         controlsParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_TOP);
                         controls.setLayoutParams(controlsParams);
                     }
 
                     android.widget.RelativeLayout.LayoutParams bottomParams =
-                            new android.widget.RelativeLayout.LayoutParams(width, height - topHeight);
+                            new android.widget.RelativeLayout.LayoutParams(width, bottomHeight);
+                    bottomParams.bottomMargin = bottomMargin;
                     bottomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM);
                     mLayout.addView(inlineBottomView, bottomParams);
                 }
